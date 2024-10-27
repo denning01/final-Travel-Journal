@@ -56,3 +56,69 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
+
+# Post Model
+class Post(db.Model):
+    __tablename__ = 'posts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(120), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    image_url = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    comments = db.relationship('Comment', backref='post', lazy=True)
+
+# Comment Model
+class Comment(db.Model):
+    __tablename__ = 'comments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=False)
+
+# Follower Model (Association Table)
+class Follower(db.Model):
+    __tablename__ = 'followers'
+
+    follower_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    followed_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    follow_date = db.Column(db.DateTime, default=datetime.utcnow)
+
+# REST Endpoints
+
+# User registration
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    name = data.get('name')
+    description = data.get('description')
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({'message': 'User already exists'}), 400
+
+    new_user = User(username=username, email=email, password=password, name=name, description=description)
+    # new_user.set_password(password)
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({'message': 'User registered successfully'}), 201
+
+@app.route('/users', methods=['GET'])
+def get_users():
+    users = User.query.all()
+
+    return jsonify([{
+        'id': user.id,  # Include the user ID
+        'username': user.username,
+        'email': user.email,
+        'followers_count': len(user.followers)  # Count the number of followers
+    } for user in users])
