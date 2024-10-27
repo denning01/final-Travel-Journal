@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: flask-journal
+    env: python
+    buildCommand: |
+      apt-get update && apt-get install -y build-essential python3-dev
+      pip install -r requirements.txt 
+
