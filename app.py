@@ -122,3 +122,73 @@ def get_users():
         'email': user.email,
         'followers_count': len(user.followers)  # Count the number of followers
     } for user in users])
+
+# User login
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+
+    user = User.query.filter_by(email=email).first()
+    if user is None or user.password != password:
+        return jsonify({'message': 'Invalid credentials'}), 401
+
+    access_token = create_access_token(identity=user.id)
+
+    return jsonify({'access_token': access_token})
+
+# Get user profile (JWT-protected)
+@app.route('/profile', methods=['GET'])
+@jwt_required()
+def profile():
+    user_id = get_jwt_identity()
+    user = User.query.get_or_404(user_id)
+
+    return jsonify({
+        'username': user.username,
+        'email': user.email
+    })
+
+# CRUD for posts
+@app.route('/posts', methods=['POST'])
+@jwt_required()
+def create_post():
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    title = data.get('title')
+    content = data.get('content')
+    image_url = data.get('image_url')
+    new_post = Post(title=title, content=content, image_url=image_url, user_id=user_id)
+    db.session.add(new_post)
+    db.session.commit()
+
+    return jsonify({'message': 'Post created'}), 201
+
+@app.route('/posts', methods=['GET'])
+def get_posts():
+    posts = Post.query.all()
+
+    return jsonify([{
+        'id': post.id,  # Added post ID
+        'title': post.title,
+        'content': post.content,
+        'image_url': post.image_url,
+        'author': post.author.username
+    } for post in posts])
+
+@app.route('/posts/<int:post_id>', methods=['GET'])
+def get_post(post_id):
+    # Query the post by its ID
+    post = Post.query.get_or_404(post_id)
+
+    # Return the post's details in JSON format
+    return jsonify({
+        'id': post.id,
+        'title': post.title,
+        'content': post.content,
+        'image_url': post.image_url,
+        'author': post.author.username,
+        'created_at': post.created_at
+    }), 200
