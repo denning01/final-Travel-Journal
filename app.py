@@ -122,3 +122,4 @@ def get_users():
         'email': user.email,
         'followers_count': len(user.followers)  # Count the number of followers
     } for user in users])
+
