@@ -192,3 +192,71 @@ def get_post(post_id):
         'author': post.author.username,
         'created_at': post.created_at
     }), 200
+
+@app.route('/posts/<int:post_id>/comments', methods=['POST'])
+@jwt_required()
+def create_comment(post_id):
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    content = data.get('content')
+
+    if not content:
+        return jsonify({'msg': 'Content is required'}), 400
+
+    comment = Comment(content=content, user_id=user_id, post_id=post_id)
+    db.session.add(comment)
+    db.session.commit()
+
+    return jsonify({'msg': 'Comment created', 'comment': {'id': comment.id, 'content': comment.content, 'created_at': comment.created_at}}), 201
+
+# Endpoint to get comments for a post
+@app.route('/posts/<int:post_id>/comments', methods=['GET'])
+def get_post_comments(post_id):
+    # Query the post to ensure it exists
+    post = Post.query.get_or_404(post_id)
+
+    # Query all comments related to the post
+    comments = Comment.query.filter_by(post_id=post.id).all()
+
+    # Return the comments in JSON format
+    return jsonify([{
+        'id': comment.id,
+        'content': comment.content,
+        'author': comment.user.username,  # Assuming 'user' is the backref to User model
+        'created_at': comment.created_at
+    } for comment in comments]), 200
+# Endpoint to follow a user
+@app.route('/follow/<int:user_id>', methods=['POST'])
+@jwt_required()
+def follow_user(user_id):
+    follower_id = get_jwt_identity()
+
+    # Check if the follower is already following the user
+    existing_follow = Follower.query.filter_by(follower_id=follower_id, followed_id=user_id).first()
+    if existing_follow:
+        return jsonify({'msg': 'You are already following this user'}), 400
+
+    follow = Follower(follower_id=follower_id, followed_id=user_id)
+    db.session.add(follow)
+    db.session.commit()
+
+    return jsonify({'msg': 'Successfully followed user'}), 201
+
+# Endpoint to unfollow a user
+@app.route('/unfollow/<int:user_id>', methods=['DELETE'])
+@jwt_required()
+def unfollow_user(user_id):
+    follower_id = get_jwt_identity()
+    
+    # Check if the follower is currently following the user
+    follow = Follower.query.filter_by(follower_id=follower_id, followed_id=user_id).first()
+    if not follow:
+        return jsonify({'msg': 'You are not following this user'}), 400
+
+    db.session.delete(follow)
+    db.session.commit()
+
+    return jsonify({'msg': 'Successfully unfollowed user'}), 200
+
+if __name__ == '__main__':
+    app.run(debug=True)
